@@ -71,7 +71,7 @@ interface Store {
   credit: (n: number) => void
   grant: (d: Drop, opts?: { mutate?: boolean; source?: DropSource }) => InvItem | null
   freeCases: Record<string, number>
-  useFreeCase: (caseId: string) => boolean
+  consumeFreeCase: (caseId: string) => boolean
   tradeItem: (uid: string, brainrotId: string) => void
   announcement: Announcement | null
   refreshSettings: () => Promise<void>
@@ -245,7 +245,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const freeCasesRef = useRef(freeCases)
   freeCasesRef.current = freeCases
-  const useFreeCase = useCallback((caseId: string) => {
+  const consumeFreeCase = useCallback((caseId: string) => {
     if ((freeCasesRef.current[caseId] ?? 0) <= 0) return false
     freeCasesRef.current = { ...freeCasesRef.current, [caseId]: freeCasesRef.current[caseId] - 1 }
     setFreeCases(freeCasesRef.current)
@@ -360,12 +360,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       requestWithdraw,
       tradeItem,
       freeCases,
-      useFreeCase,
+      consumeFreeCase,
       announcement,
       refreshSettings,
       priceVersion,
     }),
-    [tradeItem, freeCases, useFreeCase, announcement, refreshSettings, priceVersion, user, inTelegram, balance, inventory, requests, cooldowns, hasTag, spend, credit, grant, removeItems, sellItem, claimCase, caseReadyAt, requestDeposit, requestWithdraw],
+    [tradeItem, freeCases, consumeFreeCase, announcement, refreshSettings, priceVersion, user, inTelegram, balance, inventory, requests, cooldowns, hasTag, spend, credit, grant, removeItems, sellItem, claimCase, caseReadyAt, requestDeposit, requestWithdraw],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

@@ -173,7 +173,7 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
   const spin = () => {
     if (spinning) return
     if (gifted > 0) {
-      if (!store.useFreeCase(c.id)) return
+      if (!store.consumeFreeCase(c.id)) return
     } else if (c.kind === "paid") {
       if (!store.spend(c.price)) {
         notify("error")

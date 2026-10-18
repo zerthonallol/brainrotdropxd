@@ -22,6 +22,9 @@ export function UpgraderView() {
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [result, setResult] = useState<"win" | "lose" | null>(null)
+  // Snapshot of the round: the staked item leaves the inventory on start, so the live
+  // chance would drop to 0%. Gauge and button show this frozen value until a new pick.
+  const [locked, setLocked] = useState<{ chance: number; value: number; multiplier: number } | null>(null)
 
   const owned = store.inventory.filter((i) => i.status === "owned" && !i.mutation)
   const input = owned.find((i) => i.uid === inputUid)
@@ -36,7 +39,13 @@ export function UpgraderView() {
     [inputValue, query],
   )
 
-  const multiplier = target && inputValue ? target.price / inputValue : 0
+  const liveMultiplier = target && inputValue ? target.price / inputValue : 0
+  const shownChance = locked ? locked.chance : chance
+  const multiplier = locked ? locked.multiplier : liveMultiplier
+  const resetLock = () => {
+    setLocked(null)
+    setResult(null)
+  }
 
   const go = () => {
     if (!target || inputValue <= 0 || spinning) return
@@ -44,6 +53,7 @@ export function UpgraderView() {
       toast.error("Недостаточно монет")
       return
     }
+    setLocked({ chance, value: inputValue, multiplier: liveMultiplier })
     if (input) store.removeItems([input.uid])
     haptic("medium")
     setResult(null)
@@ -57,7 +67,7 @@ export function UpgraderView() {
       setSpinning(false)
       setResult(win ? "win" : "lose")
       if (win) {
-        store.grant({ kind: "brainrot", id: target.id })
+        store.grant({ kind: "brainrot", id: target.id }, { source: "Апгрейд" })
         notify("success")
         toast.success(`Апгрейд удался! ${target.name} в инвентаре`)
       } else {
@@ -83,10 +93,10 @@ export function UpgraderView() {
             ) : extraCoins > 0 ? (
               <Coin size={52} />
             ) : null}
-            {inputValue > 0 && <CoinAmount value={inputValue} size={12} className="mt-1 text-xs" />}
+            {(locked ? locked.value : inputValue) > 0 && <CoinAmount value={locked ? locked.value : inputValue} size={12} className="mt-1 text-xs" />}
           </Slot>
 
-          <Gauge chance={chance} rotation={rotation} spinning={spinning} result={result} />
+          <Gauge chance={shownChance} rotation={rotation} spinning={spinning} result={result} />
 
           <Slot label="Цель" empty="Выбери цель">
             {target && (
@@ -123,7 +133,7 @@ export function UpgraderView() {
         </div>
 
         <button type="button" className="bd-btn mt-4 w-full py-3.5 text-base" disabled={!target || inputValue <= 0 || spinning} onClick={go}>
-          {spinning ? "Апгрейдим…" : target ? `Апгрейд · шанс ${(chance * 100).toFixed(2)}%` : "Выбери цель"}
+          {spinning ? "Апгрейдим…" : target ? `Апгрейд · шанс ${(shownChance * 100).toFixed(2)}%` : "Выбери цель"}
         </button>
       </div>
 
@@ -172,7 +182,7 @@ export function UpgraderView() {
                 if (spinning) return
                 haptic()
                 setTargetId(b.id)
-                setResult(null)
+                resetLock()
               }}
             />
           ))}
