@@ -86,7 +86,7 @@ async function findPlayer(target: string) {
     const { data } = await supabaseAdmin.from("players").select("tg_id, username, first_name").eq("tg_id", Number(t)).maybeSingle()
     return data ?? { tg_id: Number(t), username: null, first_name: "" }
   }
-  const { data } = await supabaseAdmin.from("players").select("tg_id, username, first_name").ilike("username", t).limit(1).maybeSingle()
+  const { data } = await supabaseAdmin.from("players").select("tg_id, username, first_name").ilike("username", t.replace(/[%_\\]/g, "\\$&")).limit(1).maybeSingle()
   return data
 }
 

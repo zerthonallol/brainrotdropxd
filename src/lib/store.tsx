@@ -7,7 +7,8 @@ import {
   type DemoUser,
 } from "@/data/fixtures"
 import { initTelegram, tg } from "./telegram"
-import { loadPlayer, savePlayer } from "./player.functions"
+import { claimGrants, loadPlayer, reportDrop, savePlayer } from "./player.functions"
+import { toast } from "sonner"
 import { getSettings } from "./owner.functions"
 import { applyPriceOverrides, initStreamer, useLive } from "./live"
 import { rollMutation, mutatedValue, type MutationId } from "@/data/mutations"
@@ -22,6 +23,7 @@ interface SavedState {
   inventory: InvItem[]
   requests: TransferRequest[]
   cooldowns: Record<string, number>
+  freeCases?: Record<string, number>
   savedAt: number
 }
 
@@ -42,6 +44,8 @@ export interface Announcement {
   text: string
   by: number | null
 }
+
+export type DropSource = "Кейс" | "Апгрейд" | "Crash" | "Dice"
 
 export interface TransferRequest {
   id: string
@@ -65,7 +69,9 @@ interface Store {
   canAfford: (n: number) => boolean
   spend: (n: number) => boolean
   credit: (n: number) => void
-  grant: (d: Drop, opts?: { mutate?: boolean }) => InvItem | null
+  grant: (d: Drop, opts?: { mutate?: boolean; source?: DropSource }) => InvItem | null
+  freeCases: Record<string, number>
+  useFreeCase: (caseId: string) => boolean
   tradeItem: (uid: string, brainrotId: string) => void
   announcement: Announcement | null
   refreshSettings: () => Promise<void>
@@ -90,6 +96,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [inventory, setInventory] = useState<InvItem[]>([])
   const [requests, setRequests] = useState<TransferRequest[]>([])
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({})
+  const [freeCases, setFreeCases] = useState<Record<string, number>>({})
   const [announcement, setAnnouncement] = useState<Announcement | null>(null)
   const { priceVersion } = useLive()
 
@@ -135,6 +142,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (Array.isArray(st.inventory)) setInventory(st.inventory.filter((i) => BRAINROT_BY_ID[i.brainrotId]))
     if (Array.isArray(st.requests)) setRequests(st.requests)
     if (st.cooldowns && typeof st.cooldowns === "object") setCooldowns(st.cooldowns)
+    if (st.freeCases && typeof st.freeCases === "object") setFreeCases(st.freeCases)
   }, [])
 
   useEffect(() => {
@@ -166,9 +174,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [apply])
 
   const snapshot = useRef<SavedState | null>(null)
-  snapshot.current = { balance, inventory, requests, cooldowns, savedAt: Date.now() }
+  snapshot.current = { balance, inventory, requests, cooldowns, freeCases, savedAt: Date.now() }
   const lastSent = useRef("")
 
+  const persistRef = useRef<() => void>(() => {})
   const persist = useCallback(() => {
     const st = snapshot.current
     if (!st) return
@@ -188,6 +197,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  persistRef.current = persist
   useEffect(() => {
     if (!loaded) return
     const t = setInterval(persist, SAVE_EVERY_MS)
@@ -200,6 +210,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("pagehide", persist)
     }
   }, [loaded, persist])
+
+  // Developer gifts (coins / cases) are queued server-side and claimed here.
+  useEffect(() => {
+    if (!loaded) return
+    let stop = false
+    const pull = async () => {
+      const app = tg()
+      if (!app || stop) return
+      try {
+        const grants = await claimGrants({ data: { initData: app.initData } })
+        for (const g of grants) {
+          if (g.kind === "coins") {
+            setBalance((b) => b + g.amount)
+            toast.success(`Разработчик выдал тебе ${g.amount.toLocaleString("ru-RU")} монет`)
+          } else if (g.caseId) {
+            const id = g.caseId
+            setFreeCases((fc) => ({ ...fc, [id]: (fc[id] ?? 0) + g.amount }))
+            toast.success(`Разработчик выдал тебе кейс ×${g.amount}`)
+          }
+        }
+        if (grants.length) setTimeout(() => persistRef.current(), 300)
+      } catch (e) {
+        console.error("claimGrants failed", e)
+      }
+    }
+    pull()
+    const t = setInterval(pull, 15_000)
+    return () => {
+      stop = true
+      clearInterval(t)
+    }
+  }, [loaded])
+
+  const freeCasesRef = useRef(freeCases)
+  freeCasesRef.current = freeCases
+  const useFreeCase = useCallback((caseId: string) => {
+    if ((freeCasesRef.current[caseId] ?? 0) <= 0) return false
+    freeCasesRef.current = { ...freeCasesRef.current, [caseId]: freeCasesRef.current[caseId] - 1 }
+    setFreeCases(freeCasesRef.current)
+    return true
+  }, [])
 
   const hasTag = `${user.firstName} ${user.lastName ?? ""}`.toLowerCase().includes(TAG)
 
@@ -215,7 +266,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const credit = useCallback((n: number) => setBalance((b) => b + n), [])
 
-  const grant = useCallback((d: Drop, opts?: { mutate?: boolean }) => {
+  const grant = useCallback((d: Drop, opts?: { mutate?: boolean; source?: DropSource }) => {
+    if (d.kind === "brainrot" && opts?.source) {
+      const app = tg()
+      if (app) reportDrop({ data: { initData: app.initData, brainrotId: d.id, source: opts.source } }).catch(() => {})
+    }
     if (d.kind === "coins") {
       setBalance((b) => b + d.amount)
       return null
@@ -304,11 +359,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       requestDeposit,
       requestWithdraw,
       tradeItem,
+      freeCases,
+      useFreeCase,
       announcement,
       refreshSettings,
       priceVersion,
     }),
-    [tradeItem, announcement, refreshSettings, priceVersion, user, inTelegram, balance, inventory, requests, cooldowns, hasTag, spend, credit, grant, removeItems, sellItem, claimCase, caseReadyAt, requestDeposit, requestWithdraw],
+    [tradeItem, freeCases, useFreeCase, announcement, refreshSettings, priceVersion, user, inTelegram, balance, inventory, requests, cooldowns, hasTag, spend, credit, grant, removeItems, sellItem, claimCase, caseReadyAt, requestDeposit, requestWithdraw],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

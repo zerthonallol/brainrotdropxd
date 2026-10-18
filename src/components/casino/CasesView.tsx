@@ -160,6 +160,7 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
   const readyAt = store.caseReadyAt(c)
   const cooldownLeft = readyAt - now
   const gate = gateReason(c, store)
+  const gifted = store.freeCases[c.id] ?? 0
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -171,7 +172,9 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
 
   const spin = () => {
     if (spinning) return
-    if (c.kind === "paid") {
+    if (gifted > 0) {
+      if (!store.useFreeCase(c.id)) return
+    } else if (c.kind === "paid") {
       if (!store.spend(c.price)) {
         notify("error")
         toast.error("Недостаточно монет", { description: "Пополни баланс через депозит брейнрота" })
@@ -200,7 +203,7 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
         setSpinning(false)
         setWon(result)
         notify("success")
-        const item = store.grant(result, { mutate: true })
+        const item = store.grant(result, { mutate: true, source: "Кейс" })
         setWonUid(item?.uid ?? null)
         setWonMut(item?.mutation)
         if (item?.mutation) toast.success(`Мутация ${MUTATION_BY_ID[item.mutation].name}! ×${MUTATION_BY_ID[item.mutation].mult}`)
@@ -217,7 +220,7 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
   }
 
   const disabled =
-    spinning || (c.kind === "paid" ? !store.canAfford(c.price) : Boolean(gate) || cooldownLeft > 0)
+    spinning || (gifted > 0 ? false : c.kind === "paid" ? !store.canAfford(c.price) : Boolean(gate) || cooldownLeft > 0)
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-[#07040f]/95 backdrop-blur-sm">
@@ -266,6 +269,8 @@ function CaseModal({ c, onClose }: { c: CaseDef; onClose: () => void }) {
             <button type="button" className="bd-btn flex-1 py-3.5 text-base" onClick={spin} disabled={disabled}>
               {spinning ? (
                 "Крутим…"
+              ) : gifted > 0 ? (
+                `Открыть подарок (×${gifted})`
               ) : c.kind === "paid" ? (
                 <span className="inline-flex items-center gap-2">
                   Открыть за <Coin size={18} /> {streamer ? "•••" : formatCoins(c.price)}
