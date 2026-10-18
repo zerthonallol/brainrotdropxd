@@ -14,13 +14,185 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          announcement: string | null
+          announcement_by: number | null
+          announcement_id: string | null
+          id: number
+          maintenance: boolean
+          maintenance_text: string | null
+          price_overrides: Json
+          updated_at: string
+        }
+        Insert: {
+          announcement?: string | null
+          announcement_by?: number | null
+          announcement_id?: string | null
+          id?: number
+          maintenance?: boolean
+          maintenance_text?: string | null
+          price_overrides?: Json
+          updated_at?: string
+        }
+        Update: {
+          announcement?: string | null
+          announcement_by?: number | null
+          announcement_id?: string | null
+          id?: number
+          maintenance?: boolean
+          maintenance_text?: string | null
+          price_overrides?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      live_drops: {
+        Row: {
+          brainrot_id: string
+          created_at: string
+          id: number
+          source: string
+          tg_id: number
+          user_name: string
+        }
+        Insert: {
+          brainrot_id: string
+          created_at?: string
+          id?: never
+          source: string
+          tg_id: number
+          user_name: string
+        }
+        Update: {
+          brainrot_id?: string
+          created_at?: string
+          id?: never
+          source?: string
+          tg_id?: number
+          user_name?: string
+        }
+        Relationships: []
+      }
+      pending_grants: {
+        Row: {
+          amount: number
+          case_id: string | null
+          claimed_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          tg_id: number
+        }
+        Insert: {
+          amount?: number
+          case_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          note?: string | null
+          tg_id: number
+        }
+        Update: {
+          amount?: number
+          case_id?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          tg_id?: number
+        }
+        Relationships: []
+      }
+      players: {
+        Row: {
+          created_at: string
+          first_name: string
+          state: Json
+          tg_id: number
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_name?: string
+          state?: Json
+          tg_id: number
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          state?: Json
+          tg_id?: number
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          active: boolean
+          code: string
+          coins: number
+          created_at: string
+          max_uses: number
+          uses: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          coins: number
+          created_at?: string
+          max_uses?: number
+          uses?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          coins?: number
+          created_at?: string
+          max_uses?: number
+          uses?: number
+        }
+        Relationships: []
+      }
+      promo_redemptions: {
+        Row: {
+          code: string
+          created_at: string
+          tg_id: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          tg_id: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          tg_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_redemptions_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      redeem_promo: { Args: { _code: string; _tg_id: number }; Returns: number }
     }
     Enums: {
       [_ in never]: never
