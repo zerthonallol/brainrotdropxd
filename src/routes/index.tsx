@@ -5,7 +5,11 @@ import { OwnerView } from '@/components/casino/OwnerView'
 import { isOwner } from '@/lib/tg-auth'
 import { setStreamer, useLive } from '@/lib/live'
 import { BRAINROT_BY_ID, TIER_META } from '@/data/brainrots'
-import { randomFeedItem, type FeedItem } from '@/data/fixtures'
+import { getLiveDrops } from '@/lib/player.functions'
+import { getMaintenance } from '@/lib/owner.functions'
+import { Wrench } from 'lucide-react'
+
+type FeedItem = { key: string; user: string; brainrotId: string; source: string }
 import { StoreProvider, useStore } from '@/lib/store'
 import { haptic } from '@/lib/telegram'
 import { cn } from '@/lib/utils'
@@ -51,6 +55,17 @@ function App() {
 function Shell() {
   const { user } = useStore()
   const owner = isOwner(user.id)
+  const [maint, setMaint] = useState<{ on: boolean; text: string | null }>({ on: false, text: null })
+  useEffect(() => {
+    let stop = false
+    const pull = () => getMaintenance().then((m) => !stop && setMaint(m)).catch(() => {})
+    pull()
+    const t = setInterval(pull, 15_000)
+    return () => {
+      stop = true
+      clearInterval(t)
+    }
+  }, [])
   const tabs = owner ? [...TABS, { id: 'owner' as TabId, label: 'Владелец', icon: Crown }] : TABS
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tab, setTab] = useState<TabId>('cases')
@@ -63,8 +78,13 @@ function Shell() {
     window.scrollTo({ top: 0 })
   }
 
+  if (maint.on && !owner) return <MaintenanceScreen text={maint.text} />
+
   return (
     <div className="bd-bg min-h-dvh pb-28">
+      {maint.on && owner && (
+        <div className="bg-[var(--bd-gold)] px-4 py-1.5 text-center text-[11px] font-extrabold text-black">Тех. перерыв включён — сайт видишь только ты</div>
+      )}
       <Header onDeposit={() => go('profile')} onSettings={() => setSettingsOpen(true)} />
       <UpdateBanner />
       <LiveFeed />
@@ -86,6 +106,20 @@ function Shell() {
       </main>
       <BottomNav tabs={tabs} tab={tab} onChange={go} />
       {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+    </div>
+  )
+}
+
+function MaintenanceScreen({ text }: { text: string | null }) {
+  return (
+    <div className="bd-bg grid min-h-dvh place-items-center px-6 text-center">
+      <div className="bd-pop max-w-sm">
+        <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[var(--bd-gold)]/15 text-[var(--bd-gold)]">
+          <Wrench className="size-8" />
+        </div>
+        <h1 className="mt-5 font-heading text-2xl font-extrabold">Технический перерыв</h1>
+        <p className="mt-2 text-sm text-white/60">{text || 'Мы обновляем BrainrotDrop. Скоро вернёмся — твой баланс и инвентарь в сохранности.'}</p>
+      </div>
     </div>
   )
 }
@@ -192,15 +226,30 @@ function Header({ onDeposit, onSettings }: { onDeposit: () => void; onSettings: 
   )
 }
 
+// Real drops from real players, stored server-side and polled.
 function LiveFeed() {
-  const [items, setItems] = useState<FeedItem[]>([])
+  const [items, setItems] = useState<FeedItem[] | null>(null)
   useEffect(() => {
-    setItems(Array.from({ length: 14 }, randomFeedItem))
-    const t = setInterval(() => setItems((it) => [randomFeedItem(), ...it].slice(0, 14)), 4500)
-    return () => clearInterval(t)
+    let stop = false
+    const pull = () =>
+      getLiveDrops()
+        .then((d) => !stop && setItems(d.filter((f) => BRAINROT_BY_ID[f.brainrotId])))
+        .catch(() => !stop && setItems((x) => x ?? []))
+    pull()
+    const t = setInterval(pull, 5000)
+    return () => {
+      stop = true
+      clearInterval(t)
+    }
   }, [])
-  if (items.length === 0) return <div className="h-[58px]" />
-  const loop = [...items, ...items]
+  if (items === null) return <div className="h-[58px]" />
+  if (items.length === 0)
+    return (
+      <div className="flex h-[58px] items-center justify-center border-b border-white/6 bg-black/20 text-[11px] text-white/45">
+        Лайв-дропы появятся, когда игроки начнут открывать кейсы
+      </div>
+    )
+  const loop = items.length >= 6 ? [...items, ...items] : items
   return (
     <div className="overflow-hidden border-b border-white/6 bg-black/20">
       <div className="bd-ticker flex w-max gap-2 px-2 py-2">

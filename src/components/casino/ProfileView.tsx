@@ -4,7 +4,9 @@ import { toast } from "sonner"
 import { BRAINROTS, BRAINROT_BY_ID, wikiLink } from "@/data/brainrots"
 import { itemValue, useStore, type InvItem } from "@/lib/store"
 import { tradeOptions } from "@/data/mutations"
-import { Repeat } from "lucide-react"
+import { Repeat, Ticket } from "lucide-react"
+import { redeemPromo } from "@/lib/player.functions"
+import { tg } from "@/lib/telegram"
 import { haptic, notify } from "@/lib/telegram"
 import { cn } from "@/lib/utils"
 import { InviteButton } from "./CasesView"
@@ -50,6 +52,8 @@ export function ProfileView({ initialTab = "inventory" }: { initialTab?: Tab }) 
         </div>
       </div>
 
+      <PromoBox />
+
       <div className="grid grid-cols-3 gap-1 rounded-2xl bg-black/30 p-1">
         {(
           [
@@ -79,6 +83,50 @@ export function ProfileView({ initialTab = "inventory" }: { initialTab?: Tab }) 
       {tab === "inventory" && <Inventory />}
       {tab === "deposit" && <Deposit onDone={() => setTab("requests")} />}
       {tab === "requests" && <Requests />}
+    </div>
+  )
+}
+
+function PromoBox() {
+  const store = useStore()
+  const [code, setCode] = useState("")
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    const app = tg()
+    if (!app) {
+      toast.error("Промокоды работают только в Telegram")
+      return
+    }
+    setBusy(true)
+    try {
+      const { coins } = await redeemPromo({ data: { initData: app.initData, code } })
+      store.credit(coins)
+      notify("success")
+      toast.success(`Промокод активирован: +${formatCoins(coins)} монет`)
+      setCode("")
+    } catch (e) {
+      notify("error")
+      toast.error(e instanceof Error ? e.message : "Не удалось активировать")
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="bd-panel flex items-center gap-2 p-3">
+      <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--bd-lime)]/15 text-[var(--bd-lime)]">
+        <Ticket className="size-5" />
+      </div>
+      <input
+        className="bd-input flex-1 uppercase"
+        placeholder="Промокод"
+        maxLength={32}
+        value={code}
+        onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
+        onKeyDown={(e) => e.key === "Enter" && code && !busy && submit()}
+      />
+      <button type="button" className="bd-btn px-4 py-2.5 text-sm" disabled={!code || busy} onClick={submit}>
+        {busy ? "…" : "Активировать"}
+      </button>
     </div>
   )
 }
