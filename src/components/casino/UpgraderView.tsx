@@ -156,7 +156,7 @@ export function UpgraderView() {
                     if (spinning) return
                     haptic()
                     setInputUid(inputUid === i.uid ? null : i.uid)
-                    setResult(null)
+                    resetLock()
                   }}
                 />
               </div>
