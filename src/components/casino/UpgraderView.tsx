@@ -121,7 +121,10 @@ export function UpgraderView() {
               max={Math.max(0, Math.min(store.balance, 5000))}
               step={10}
               value={extraCoins}
-              onChange={(e) => setExtraCoins(Number(e.target.value))}
+              onChange={(e) => {
+                setExtraCoins(Number(e.target.value))
+                if (locked) resetLock()
+              }}
               disabled={spinning}
               className="mt-1 w-full accent-[var(--bd-lime)]"
             />
