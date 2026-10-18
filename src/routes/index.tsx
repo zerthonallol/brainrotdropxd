@@ -66,7 +66,7 @@ function Shell() {
       clearInterval(t)
     }
   }, [])
-  const tabs = owner ? [...TABS, { id: 'owner' as TabId, label: 'Владелец', icon: Crown }] : TABS
+  const tabs = owner ? [...TABS, { id: 'owner' as TabId, label: 'Разраб', icon: Crown }] : TABS
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tab, setTab] = useState<TabId>('cases')
   // Game views stay mounted so a running Crash round or upgrade isn't lost on tab switch.
