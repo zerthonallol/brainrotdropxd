@@ -9,7 +9,7 @@ import { SectionTitle } from "./CasesView"
 import { BrainrotCard, BrainrotImg, Coin, CoinAmount, IncomeTag, formatCoins } from "./ui"
 
 const HOUSE = 0.95
-const MAX_CHANCE = 0.8
+const MAX_CHANCE = 0.75
 const R = 92
 const CIRC = 2 * Math.PI * R
 
@@ -19,6 +19,7 @@ export function UpgraderView() {
   const [extraCoins, setExtraCoins] = useState(0)
   const [targetId, setTargetId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
+  const [targetPreset, setTargetPreset] = useState<string | null>(null)
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [result, setResult] = useState<"win" | "lose" | null>(null)
@@ -33,11 +34,18 @@ export function UpgraderView() {
   const target = targetId ? BRAINROT_BY_ID[targetId] : null
   const chance = target && inputValue > 0 ? Math.min(MAX_CHANCE, (inputValue / target.price) * HOUSE) : 0
 
-  const targets = useMemo(
-    () =>
-      BRAINROTS.filter((b) => b.price > Math.max(inputValue, 1) && b.name.toLowerCase().includes(query.toLowerCase())).slice(0, 30),
-    [inputValue, query],
-  )
+  const targets = useMemo(() => {
+    const candidates = BRAINROTS.filter((b) => b.price > Math.max(inputValue, 1) && b.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => a.price - b.price)
+    if (!targetPreset || inputValue <= 0) return candidates
+    return candidates.filter((b) => {
+      const multiplier = b.price / inputValue
+      const targetChance = Math.min(MAX_CHANCE, (inputValue / b.price) * HOUSE)
+      if (targetPreset === "75%") return targetChance >= 0.70 && targetChance <= 0.75
+      if (targetPreset === "50%") return targetChance >= 0.45 && targetChance <= 0.55
+      const multiple = Number(targetPreset.replace("x", ""))
+      return Math.abs(multiplier - multiple) <= multiple * 0.1
+    })
+  }, [inputValue, query, targetPreset])
 
   const liveMultiplier = target && inputValue ? target.price / inputValue : 0
   const shownChance = locked ? locked.chance : chance
@@ -172,6 +180,14 @@ export function UpgraderView() {
             <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-white/40" />
             <input className="bd-input py-1.5 pl-8 text-xs" placeholder="Поиск" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
+        </div>
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {["75%", "50%", "2x", "4x", "6x", "10x"].map((preset) => (
+            <button key={preset} type="button" onClick={() => setTargetPreset((current) => current === preset ? null : preset)} className={cn("bd-btn-ghost px-3 py-1.5 text-[11px] font-bold", targetPreset === preset && "border-[var(--bd-lime)] text-[var(--bd-lime)]")}>
+              {preset}
+            </button>
+          ))}
+          {targetPreset && <button type="button" onClick={() => setTargetPreset(null)} className="bd-btn-ghost px-3 py-1.5 text-[11px]">Все</button>}
         </div>
         <div className="grid grid-cols-3 gap-2">
           {targets.map((b) => (

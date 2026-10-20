@@ -4,6 +4,14 @@ import { useSyncExternalStore } from "react"
 import { BRAINROTS } from "@/data/brainrots"
 
 const ORIGINAL: Record<string, number> = Object.fromEntries(BRAINROTS.map((b) => [b.id, b.price]))
+const DEFAULT_PRICE_OVERRIDES: Record<string, number> = {
+  "pancake-and-syrup": 2346,
+  "bearito-cabinito": 653,
+  "hydra-serpent": 1871,
+  "reinito-sleighito": 672,
+  "los-sekolahs": 894,
+  "los-amigos": 1316,
+}
 const LS_STREAMER = "brainrotdrop:streamer"
 
 let state = { streamer: false, priceVersion: 0 }
@@ -44,7 +52,7 @@ export function originalPrice(id: string) {
 export function applyPriceOverrides(map: Record<string, number>) {
   let changed = false
   for (const b of BRAINROTS) {
-    const next = map[b.id] ?? ORIGINAL[b.id]
+    const next = map[b.id] ?? DEFAULT_PRICE_OVERRIDES[b.id] ?? ORIGINAL[b.id]
     if (b.price !== next) {
       b.price = next
       changed = true
