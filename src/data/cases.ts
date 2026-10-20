@@ -127,6 +127,7 @@ export const CASES: CaseDef[] = [
   },
   paid("secret", "Секретный", "Обычные Secret брейнроты", "#38bdf8", cover("tralaledon"), byTier("rare")),
   paid("lucky", "Лаки Кэтч", "Secret + редкие", "#a855f7", cover("tictac-sahur"), byTier("rare", "epic")),
+  paid("dragon", "Dragon", "Драконы, включая Dragon Cannelloni", "#fb7185", cover("dragon-cannelloni"), byIds(["dragon-cannelloni", "hydra-dragon-cannelloni", "dragon-aquanini", "dragon-skeletonini", "los-dragons"])),
   paid("sea", "Морская братва", "Акулы, рыбы и капитаны", "#0ea5e9", art("sea"), byIds(SEA)),
   paid("halloween", "Хеллуин", "Тыквы, скелеты и призраки", "#f97316", art("halloween"), byIds(HALLOWEEN)),
   paid("christmas", "Рождество", "Новогодние брейнроты", "#ef4444", art("christmas"), byIds(CHRISTMAS)),
